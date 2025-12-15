@@ -649,23 +649,67 @@ class PotatoBoss extends BossBase { constructor() { super(GAME_WIDTH - 250, GROU
 class OnionBoss extends BossBase { constructor() { super(GAME_WIDTH/2 - 75, GROUND_Y - 180, 150, 180, 200); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 50 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, angle, false, 'tear')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 35 === 0) { const p = new Projectile(this.x + this.w/2, this.y + this.h/2, angle + (Math.random() - 0.5) * 0.5, false, 'tear'); projectiles.push(p); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = this.stage === 2 ? '#A0A0A0' : '#C0C0C0'; ctx.fillRect(-70, -90, 140, 180); ctx.strokeStyle = '#808080'; ctx.lineWidth = 4; ctx.strokeRect(-70, -90, 140, 180); ctx.fillStyle = '#228B22'; ctx.fillRect(-60, -40, 10, 40); ctx.fillRect(20, 20, 10, 50); ctx.fillRect(-30, 50, 40, 10); ctx.save(); ctx.translate(-60, -40); ctx.rotate(this.armAngle * 0.5); ctx.fillStyle = '#EEE'; ctx.fillRect(-15, 0, 15, 120); ctx.strokeRect(-15, 0, 15, 120); ctx.restore(); ctx.save(); ctx.translate(60, -40); ctx.rotate(-this.armAngle * 0.5); ctx.fillStyle = '#EEE'; ctx.fillRect(0, 0, 15, 120); ctx.strokeRect(0, 0, 15, 120); ctx.restore(); ctx.fillStyle = this.stage === 2 ? '#f00' : '#800000'; ctx.fillRect(-30, -50, 15, 10); ctx.fillRect(15, -50, 15, 10); ctx.fillStyle = '#909090'; ctx.fillRect(-15, -40, 30, 40); ctx.strokeStyle='#707070'; ctx.strokeRect(-15, -40, 30, 40); ctx.restore(); } }
 class CarrotBoss extends BossBase { constructor() { super(GAME_WIDTH/2 - 80, GROUND_Y - 260, 160, 260, 220); } update() { super.updateBase(); if(this.state === 'transition') return; this.state = this.stage >= 2 ? 'psy' : 'idle'; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 80 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 50, angle, false, 'carrot_missile')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 100 === 0) { for(let i=0; i<8; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y - 40, (Math.PI*2/8)*i, false, 'ball_gravity')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#777'; ctx.fillRect(-60, -100, 120, 200); ctx.fillStyle = this.stage === 2 ? '#00FF00' : '#0f0'; for(let i=0; i<10; i++) ctx.fillRect(-50+Math.random()*100, -90+Math.random()*180, 15, 15); if (this.state === 'psy') { ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; ctx.fillRect(-30, -140, 60, 40); ctx.fillStyle = '#fff'; ctx.fillRect(-20, -130, 40, 20); } ctx.fillStyle = '#000'; ctx.fillRect(-30, -30, 20, 20); ctx.fillRect(10, -30, 20, 20); ctx.fillRect(-10, 0, 20, 30); ctx.fillRect(-20, 30, 10, 20); ctx.fillRect(10, 30, 10, 20); ctx.restore(); } }
 class CircusBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 240, 150, 240, 240); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 50, angle + (Math.random()-0.5)*0.5, false, 'ball_gravity')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 120 === 0) for(let i=0; i<5; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, angle + (i*0.2 - 0.4), false, 'confetti')); } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#A0522D'; ctx.fillRect(-60, -80, 120, 160); ctx.fillStyle = '#8B4513'; ctx.fillRect(-60, -80, 10, 160); ctx.fillRect(50, -80, 10, 160); ctx.fillStyle = '#D2B48C'; ctx.fillRect(-40, -140, 80, 60); ctx.fillStyle = '#000'; ctx.fillRect(-30, -120, 10, 5); ctx.fillRect(20, -120, 10, 5); ctx.fillStyle = '#8B4513'; ctx.fillRect(-15, -115, 30, 40); ctx.fillStyle = this.stage === 2 ? '#FFA500' : '#87CEEB'; ctx.fillRect(-30, -40, 20, 20); ctx.fillRect(10, -40, 20, 20); ctx.fillRect(-30, 20, 20, 20); ctx.fillRect(10, 20, 20, 20); ctx.restore(); } }
-class RobotBoss extends BossBase { constructor() { super(GAME_WIDTH - 220, GROUND_Y - 260, 180, 260, 300); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'gear')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 80 === 0) { projectiles.push(new Projectile(this.x, this.y + 80, angle, false, 'gear')); projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'gear')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#757575'; ctx.fillRect(-70, -90, 140, 180); ctx.fillStyle = '#FF0000'; ctx.fillRect(-50, -50, 100, 10); ctx.fillRect(0, -50, 10, 100); ctx.fillStyle = this.stage === 2 ? '#FF0000' : '#FF3333'; ctx.fillRect(-30, -30, 60, 60); ctx.strokeStyle='#900'; ctx.strokeRect(-30,-30,60,60); ctx.save(); ctx.translate(-60, -60); ctx.rotate(this.armAngle*0.3); ctx.fillStyle = '#8B4513'; ctx.fillRect(-30, 0, 30, 120); ctx.fillStyle = '#777'; ctx.fillRect(-35, 100, 40, 30); ctx.restore(); ctx.save(); ctx.translate(60, -60); ctx.rotate(-this.armAngle*0.3); ctx.fillStyle = '#8B4513'; ctx.fillRect(0, 0, 30, 120); ctx.fillStyle = '#777'; ctx.fillRect(-5, 100, 40, 30); ctx.restore(); ctx.fillStyle = '#FFFF00'; ctx.fillRect(-40, -70, 20, 10); ctx.fillRect(20, -70, 20, 10); ctx.restore(); } }
+
+class RobotBoss extends BossBase { 
+    constructor() { super(GAME_WIDTH - 220, GROUND_Y - 260, 180, 260, 300); } 
+    update() { 
+        super.updateBase(); if(this.state === 'transition') return; 
+        const angle = this.getAngleToPlayer(); 
+        if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) {
+            projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'gear')); 
+        } else if (this.stage === 2 && Math.floor(this.attackTimer) % 80 === 0) { 
+            // HABILIDADE ROUBADA: Tiro Triplo de Engrenagens
+            projectiles.push(new Projectile(this.x, this.y + 80, angle, false, 'gear')); 
+            projectiles.push(new Projectile(this.x, this.y + 80, angle - 0.3, false, 'gear')); 
+            projectiles.push(new Projectile(this.x, this.y + 80, angle + 0.3, false, 'gear')); 
+            projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'gear')); 
+        } 
+    } 
+    draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#757575'; ctx.fillRect(-70, -90, 140, 180); ctx.fillStyle = '#FF0000'; ctx.fillRect(-50, -50, 100, 10); ctx.fillRect(0, -50, 10, 100); ctx.fillStyle = this.stage === 2 ? '#FF0000' : '#FF3333'; ctx.fillRect(-30, -30, 60, 60); ctx.strokeStyle='#900'; ctx.strokeRect(-30,-30,60,60); ctx.save(); ctx.translate(-60, -60); ctx.rotate(this.armAngle*0.3); ctx.fillStyle = '#8B4513'; ctx.fillRect(-30, 0, 30, 120); ctx.fillStyle = '#777'; ctx.fillRect(-35, 100, 40, 30); ctx.restore(); ctx.save(); ctx.translate(60, -60); ctx.rotate(-this.armAngle*0.3); ctx.fillStyle = '#8B4513'; ctx.fillRect(0, 0, 30, 120); ctx.fillStyle = '#777'; ctx.fillRect(-5, 100, 40, 30); ctx.restore(); ctx.fillStyle = '#FFFF00'; ctx.fillRect(-40, -70, 20, 10); ctx.fillRect(20, -70, 20, 10); ctx.restore(); } 
+}
+
 class ChefBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 160, 220, 250); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 80 === 0) projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'knife')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 70 === 0) { projectiles.push(new Projectile(this.x, this.y + 80, angle - 0.1, false, 'knife')); projectiles.push(new Projectile(this.x, this.y + 120, angle + 0.1, false, 'knife')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#F0F0F0'; ctx.fillRect(-60, -80, 120, 100); ctx.fillStyle = '#000'; ctx.fillRect(-40, -50, 10, 5); ctx.fillRect(30, -50, 10, 5); if (this.attackTimer > 0 || this.stage === 2) { ctx.fillStyle = 'red'; ctx.fillRect(-40, -50, 10, 10); ctx.fillRect(30, -50, 10, 10); } ctx.fillStyle = 'black'; ctx.fillRect(-10, -30, 20, 10); ctx.fillStyle = '#DDD'; for(let i=0; i<5; i++) ctx.fillRect(-50 + i*25, 20, 15, 60 + Math.sin(frames*0.2+i)*10); ctx.fillStyle = this.stage === 2 ? '#FF4500' : '#FFA500'; const orbit = frames * 0.1; ctx.fillRect(Math.cos(orbit)*80 - 5, Math.sin(orbit)*20 + 20, 10, 40); ctx.fillRect(Math.cos(orbit + Math.PI)*80 - 5, Math.sin(orbit + Math.PI)*20 + 20, 10, 40); ctx.restore(); } }
 class MythicBoss extends BossBase { constructor() { super(GAME_WIDTH - 250, GROUND_Y - 250, 200, 250, 350); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'normal')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 80 === 0) { projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'normal')); projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'normal')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#003344'; ctx.fillRect(-70, -100, 140, 200); const armH = 150 + Math.sin(frames*0.1)*10; ctx.fillStyle = '#003344'; ctx.fillRect(-100, -80, 30, armH); ctx.fillRect(70, -80, 30, armH); ctx.fillStyle = '#00aaaa'; ctx.fillRect(-30, -50, 20, 20); ctx.fillRect(10, -30, 20, 20); ctx.fillStyle = this.stage === 2 ? '#008888' : '#006666'; ctx.fillRect(-30, -50, 60, 60); ctx.fillStyle = '#CCCCCC'; ctx.fillRect(-40, -50, 10, 60); ctx.fillRect(30, -50, 10, 60); ctx.fillStyle = '#000'; ctx.fillRect(-60, -120, 120, 50); ctx.fillStyle = '#00aaaa'; ctx.fillRect(-80, -140, 30, 50); ctx.fillRect(50, -140, 30, 50); ctx.restore(); } }
 class GuardianBoss extends BossBase { constructor() { super(GAME_WIDTH - 220, GROUND_Y - 240, 160, 160, 280); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 90 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'laser_teal')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 70 === 0) { projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'laser_teal')); projectiles.push(new Projectile(this.x, this.y + 50, angle + 0.5, false, 'normal')); projectiles.push(new Projectile(this.x, this.y + 50, angle - 0.5, false, 'normal')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#4fa'; ctx.fillRect(-60, -60, 120, 120); ctx.fillStyle = '#e90'; if(this.attackTimer > 60 || this.stage === 2) { for(let i=0; i<8; i++) { const a = (Math.PI*2/8)*i; ctx.fillRect(Math.cos(a)*70, Math.sin(a)*70, 10, 10); } } ctx.fillStyle = '#FFF'; ctx.fillRect(-20, -20, 40, 40); const eyeX = (player.x - (this.x+this.w/2)) * 0.05; const eyeY = (player.y - (this.y+this.h/2)) * 0.05; ctx.fillStyle = '#f60'; ctx.fillRect(-10+eyeX, -10+eyeY, 20, 20); ctx.fillStyle = '#000'; ctx.fillRect(-5+eyeX, -5+eyeY, 10, 10); ctx.restore(); } }
-class BeeBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 120, 100, 260); } update() { super.updateBase(); if(this.state === 'transition') return; this.y += Math.sin(frames * 0.1) * 2; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 60 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'stinger')); else if (this.stage === 2) { if(Math.floor(this.attackTimer) % 50 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'stinger')); if(Math.floor(this.attackTimer) % 120 === 0) { this.state = 'dash'; this.x -= 10; if(this.x < 100) { this.x = GAME_WIDTH - 200; this.state='idle'; } } } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#FFD700'; ctx.fillRect(-50, -40, 100, 80); ctx.fillStyle = '#000'; ctx.fillRect(-20, -40, 20, 80); ctx.fillRect(20, -40, 20, 80); ctx.fillStyle = 'rgba(255,255,255,0.7)'; const wingY = Math.sin(frames*1.5)*20; ctx.fillRect(-20, -80+wingY, 40, 40); ctx.fillRect(-20, -80-wingY, 40, 40); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(-50, 0); ctx.lineTo(-70, 10); ctx.lineTo(-50, 20); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillRect(30, -20, 10, 10); ctx.restore(); } }
+
+class BeeBoss extends BossBase { 
+    constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 120, 100, 260); } 
+    update() { 
+        super.updateBase(); if(this.state === 'transition') return; 
+        this.y += Math.sin(frames * 0.1) * 2; const angle = this.getAngleToPlayer(); 
+        if (this.stage === 1 && Math.floor(this.attackTimer) % 60 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'stinger')); 
+        else if (this.stage === 2) { 
+            if(Math.floor(this.attackTimer) % 50 === 0) {
+                // HABILIDADE ROUBADA: Ferrão Triplo
+                projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'stinger')); 
+                projectiles.push(new Projectile(this.x, this.y + 50, angle - 0.25, false, 'stinger'));
+                projectiles.push(new Projectile(this.x, this.y + 50, angle + 0.25, false, 'stinger'));
+            }
+            if(Math.floor(this.attackTimer) % 120 === 0) { this.state = 'dash'; this.x -= 10; if(this.x < 100) { this.x = GAME_WIDTH - 200; this.state='idle'; } } 
+        } 
+    } 
+    draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#FFD700'; ctx.fillRect(-50, -40, 100, 80); ctx.fillStyle = '#000'; ctx.fillRect(-20, -40, 20, 80); ctx.fillRect(20, -40, 20, 80); ctx.fillStyle = 'rgba(255,255,255,0.7)'; const wingY = Math.sin(frames*1.5)*20; ctx.fillRect(-20, -80+wingY, 40, 40); ctx.fillRect(-20, -80-wingY, 40, 40); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(-50, 0); ctx.lineTo(-70, 10); ctx.lineTo(-50, 20); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillRect(30, -20, 10, 10); ctx.restore(); } 
+}
+
 class ConductorBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 240, 160, 240, 320); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 90 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'note')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 60 === 0) { const p = new Projectile(this.x, this.y + 50, angle, false, 'note'); p.type = 'fast_beam'; projectiles.push(p); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#111'; ctx.fillRect(-40, -80, 80, 160); ctx.fillRect(-30, -90, 10, 150); ctx.fillRect(20, -90, 10, 150); ctx.fillRect(-30, -140, 60, 40); ctx.fillStyle = '#333'; for(let i=0; i<4; i++) ctx.fillRect(-20, -60 + i*30, 40, 5); ctx.fillStyle = '#D02090'; ctx.fillRect(-20, -60, 15, 8); ctx.fillRect(5, -60, 15, 8); ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.beginPath(); ctx.moveTo(-40, -60); ctx.lineTo(-140, -100); ctx.lineTo(-40, 20); ctx.fill(); ctx.beginPath(); ctx.moveTo(40, -60); ctx.lineTo(140, -100); ctx.lineTo(40, 20); ctx.fill(); if (frames % 10 === 0 || this.stage === 2) { ctx.fillStyle = '#D02090'; ctx.fillRect(-60 + Math.random()*120, -80 + Math.random()*160, 5, 5); } ctx.restore(); } }
 
 class SlimeBoss extends BossBase { 
     constructor() { 
         super(GAME_WIDTH - 200, GROUND_Y - 180, 160, 120, 340); 
-        this.vy = 0; // CORREÇÃO: Inicializa a velocidade vertical para evitar erro NaN
+        this.vy = 0; 
     }
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         if(this.state === 'idle') {
             this.vy += 0.5; this.y += this.vy; 
-            if(this.y + this.h >= GROUND_Y) { this.y = GROUND_Y - this.h; this.vy = -12; projectiles.push(new Projectile(this.x + this.w/2, this.y, this.getAngleToPlayer(), false, 'tear')); } 
+            if(this.y + this.h >= GROUND_Y) { 
+                this.y = GROUND_Y - this.h; this.vy = -12; 
+                // HABILIDADE ROUBADA: Splash Triplo ao cair
+                const angle = this.getAngleToPlayer();
+                projectiles.push(new Projectile(this.x + this.w/2, this.y, angle, false, 'tear')); 
+                projectiles.push(new Projectile(this.x + this.w/2, this.y, angle - 0.5, false, 'tear'));
+                projectiles.push(new Projectile(this.x + this.w/2, this.y, angle + 0.5, false, 'tear'));
+            } 
         }
     }
     draw(ctx) {
@@ -683,7 +727,14 @@ class LavaBoss extends BossBase {
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         const angle = this.getAngleToPlayer();
-        if (Math.floor(this.attackTimer) % 60 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 100, angle, false, 'fireball'));
+        if (Math.floor(this.attackTimer) % 60 === 0) {
+            projectiles.push(new Projectile(this.x + this.w/2, this.y + 100, angle, false, 'fireball'));
+            // HABILIDADE ROUBADA: Fogo Triplo na Fase 2
+            if(this.stage === 2) {
+                projectiles.push(new Projectile(this.x + this.w/2, this.y + 100, angle - 0.3, false, 'fireball'));
+                projectiles.push(new Projectile(this.x + this.w/2, this.y + 100, angle + 0.3, false, 'fireball'));
+            }
+        }
     }
     draw(ctx) {
         ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset);
@@ -732,7 +783,9 @@ class CosmicBoss extends BossBase {
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         if (Math.floor(this.attackTimer) % 40 === 0) {
-            for(let i=0; i<3; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, this.getAngleToPlayer() + (Math.PI*2/3)*i, false, 'void_orb'));
+            // HABILIDADE ROUBADA: 8 Tiros em Anel na Fase 2
+            const shotCount = this.stage === 2 ? 8 : 3;
+            for(let i=0; i<shotCount; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, this.getAngleToPlayer() + (Math.PI*2/shotCount)*i, false, 'void_orb'));
         }
     }
     draw(ctx) {
