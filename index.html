@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SN: THE GAME - HARDCORE BRUTAL</title>
+    <title>SN: THE GAME - HARDCORE AUDIO</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -197,8 +197,8 @@
 
 <script>
 /**
- * SN: THE GAME - HARDCORE BRUTAL BALANCE
- * 1000+ HP Bosses, Weak Skills, Tough Progression
+ * SN: THE GAME - HARDCORE BRUTAL BALANCE + SOUNDS
+ * 1000+ HP Bosses, Weak Skills, Tough Progression, Palado Intervention, Audio FX
  */
 
 const canvas = document.getElementById('gameCanvas');
@@ -208,7 +208,7 @@ const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 const GRAVITY = 0.5; 
 const GROUND_Y = 500;
-const SAVE_KEY = 'sn_the_game_save_v17_brutal';
+const SAVE_KEY = 'sn_the_game_save_v18_audio';
 
 let gameState = 'MENU'; 
 let frames = 0;
@@ -216,6 +216,89 @@ let shake = 0;
 let levelIndex = 0; 
 let knockoutTimer = 0;
 let timeScale = 1.0; 
+
+// --- AUDIO SYSTEM (Web Audio API) ---
+const AudioSys = {
+    ctx: null,
+    init: function() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    },
+    play: function(type) {
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume(); // Try resume if suspended
+        
+        const osc = this.ctx.createOscillator();
+        const gainNode = this.ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(this.ctx.destination);
+
+        const now = this.ctx.currentTime;
+
+        if (type === 'shoot') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+            gainNode.gain.setValueAtTime(0.05, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'jump') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.linearRampToValueAtTime(300, now + 0.1);
+            gainNode.gain.setValueAtTime(0.05, now);
+            gainNode.gain.linearRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'hit') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.1);
+            gainNode.gain.setValueAtTime(0.05, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'powerup') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.linearRampToValueAtTime(800, now + 0.2);
+            gainNode.gain.setValueAtTime(0.05, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.4);
+        } else if (type === 'explosion') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80, now);
+            osc.frequency.exponentialRampToValueAtTime(10, now + 0.4);
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.4);
+        } else if (type === 'blip') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, now);
+            gainNode.gain.setValueAtTime(0.03, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        }
+    }
+};
+
+// --- PALADO MECHANIC VARIABLES ---
+let paladoOptions = [];
+const PALADO_BUFFS = [
+    { text: "Bandagem Rápida (+1 Vida)", type: 'heal', val: 1 },
+    { text: "Recarga de Energia (+20% Ult)", type: 'ult', val: 20 },
+    { text: "Lâmina Afiada (+5% Dano)", type: 'dmg', val: 0.05 },
+    { text: "Passo Leve (+5% Velocidade)", type: 'spd', val: 0.05 },
+    { text: "Foco (Recarga Tiro -1 frame)", type: 'rate', val: 1 }
+];
 
 // --- NARRATIVE SYSTEM DATA (15 Levels) ---
 const NARRATIVES = [
@@ -266,11 +349,11 @@ let selectedCharIndex = 0;
 // --- SKILLS ---
 const SKILLS_DB = [
     { id: 'hp_up', name: 'Maçã Dourada', desc: '+1 Vida Máxima', color: '#ffd700' },
-    { id: 'dmg_up', name: 'Força I', desc: '+10% Dano', color: '#8B4513' }, // Nerfed
-    { id: 'spd_up', name: 'Poção Leve', desc: '+Velocidade Leve', color: '#ADD8E6' }, // Nerfed
+    { id: 'dmg_up', name: 'Força I', desc: '+10% Dano', color: '#8B4513' }, 
+    { id: 'spd_up', name: 'Poção Leve', desc: '+Velocidade Leve', color: '#ADD8E6' }, 
     { id: 'rapid_fire', name: 'Metralhadora', desc: 'Tiro + Rápido', color: '#00ccff' },
-    { id: 'triple_shot', name: 'Multishot', desc: 'Tiro Triplo (Dano Baixo)', color: '#ff00ff' }, // Nerfed
-    { id: 'homing', name: 'Aim Assist', desc: 'Tiros Teleguiados (Dano Baixo)', color: '#00ff00' }, // Nerfed
+    { id: 'triple_shot', name: 'Multishot', desc: 'Tiro Triplo (Dano Baixo)', color: '#ff00ff' }, 
+    { id: 'homing', name: 'Aim Assist', desc: 'Tiros Teleguiados (Dano Baixo)', color: '#00ff00' }, 
     { id: 'heal', name: 'Totem', desc: 'Recuperar Vida Total', color: '#ffcccc' }
 ];
 
@@ -288,10 +371,11 @@ const ultInput = document.getElementById('new-char-ult');
 
 function openCreator() {
     gameState = 'CREATOR';
+    AudioSys.play('blip');
     creatorMenu.style.display = 'block';
     nameInput.value = "Herói"; skinInput.value = "#FFE0BD"; clothInput.value = "#00FF00"; hairStyleInput.value = "normal"; hairColorInput.value = "#4B0082";
 }
-function closeCreator() { gameState = 'MENU'; creatorMenu.style.display = 'none'; }
+function closeCreator() { gameState = 'MENU'; creatorMenu.style.display = 'none'; AudioSys.play('blip'); }
 function cancelCreation() { closeCreator(); }
 function finishCreation() {
     const name = nameInput.value.trim() || "Sem Nome";
@@ -300,6 +384,7 @@ function finishCreation() {
     selectedCharIndex = newId; 
     closeCreator(); 
     gameState = 'MAP'; 
+    AudioSys.play('powerup');
     loadProgress();
 }
 
@@ -315,14 +400,40 @@ function generateSkills() {
 }
 
 function applySkill(skillId) {
+    AudioSys.play('powerup');
     if (skillId === 'hp_up') { playerStats.maxHp += 1; player.hp += 1; }
-    if (skillId === 'dmg_up') playerStats.damageMult += 0.1; // Nerfed from 0.2
-    if (skillId === 'spd_up') playerStats.speedMult += 0.10; // Nerfed from 0.15
-    if (skillId === 'rapid_fire') playerStats.shotDelay = Math.max(4, playerStats.shotDelay - 1); // Nerfed from -2
-    if (skillId === 'triple_shot') { playerStats.hasTripleShot = true; playerStats.damageMult *= 0.4; } // Nerfed from 0.6
-    if (skillId === 'homing') { playerStats.hasHoming = true; playerStats.damageMult *= 0.6; } // Nerfed from 0.8
+    if (skillId === 'dmg_up') playerStats.damageMult += 0.1; 
+    if (skillId === 'spd_up') playerStats.speedMult += 0.10; 
+    if (skillId === 'rapid_fire') playerStats.shotDelay = Math.max(4, playerStats.shotDelay - 1); 
+    if (skillId === 'triple_shot') { playerStats.hasTripleShot = true; playerStats.damageMult *= 0.4; } 
+    if (skillId === 'homing') { playerStats.hasHoming = true; playerStats.damageMult *= 0.6; } 
     if (skillId === 'heal') player.hp = playerStats.maxHp;
     if (skillId !== 'heal' && player.hp < playerStats.maxHp) player.hp++;
+}
+
+// --- PALADO EVENT LOGIC ---
+function triggerPaladoEvent() {
+    gameState = 'PALADO_OFFER';
+    AudioSys.play('powerup');
+    paladoOptions = [];
+    const pool = [...PALADO_BUFFS];
+    for(let i=0; i<2; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        paladoOptions.push(pool[idx]);
+        pool.splice(idx, 1);
+    }
+}
+
+function applyPaladoBuff(buff) {
+    AudioSys.play('powerup');
+    if (buff.type === 'heal') player.hp = Math.min(player.hp + buff.val, playerStats.maxHp);
+    if (buff.type === 'ult') player.addUltCharge(buff.val); 
+    if (buff.type === 'dmg') playerStats.damageMult += buff.val;
+    if (buff.type === 'spd') playerStats.speedMult += buff.val;
+    if (buff.type === 'rate') playerStats.shotDelay = Math.max(2, playerStats.shotDelay - buff.val);
+    
+    gameState = 'PLAYING';
+    createDust(player.x, player.y); 
 }
 
 // --- SAVE SYSTEM ---
@@ -533,6 +644,7 @@ class Player {
     }
     activateUltimate() {
         if (this.ultCharge >= this.ultMax && !this.ultActive) {
+            AudioSys.play('powerup');
             this.ultActive = true; this.ultCharge = 0; this.ultTimer = this.ultDuration; shake = 20;
             const ultName = CHARACTERS[selectedCharIndex].ultName;
             
@@ -545,7 +657,11 @@ class Player {
         }
     }
     // DIFICULDADE: Ultimate carrega 40% mais devagar
-    addUltCharge(amount) { if (!this.ultActive) { this.ultCharge = Math.min(this.ultCharge + (amount * 0.6), this.ultMax); } }
+    addUltCharge(amount) { 
+        if (!this.ultActive) { 
+            this.ultCharge = Math.min(this.ultCharge + (amount < 1 ? amount * 0.6 : amount), this.ultMax); 
+        } 
+    }
     
     update() {
         this.addUltCharge(0.05); if (keys.KeyE) this.activateUltimate();
@@ -572,7 +688,11 @@ class Player {
         const centerX = this.x + this.w / 2; const centerY = this.y + this.h / 2 - (this.crouching ? 0 : 10);
         this.aimAngle = Math.atan2(mouse.y - centerY, mouse.x - centerX); this.facing = (mouse.x > centerX) ? 1 : -1;
         if (!this.crouching) { if (keys.KeyA || keys.ArrowLeft) this.vx = -currentSpeed; else if (keys.KeyD || keys.ArrowRight) this.vx = currentSpeed; else this.vx = 0; }
-        if ((keys.KeyZ || keys.ArrowUp) && this.grounded && !this.crouching && !droppingDown) { this.vy = this.jumpPower * jumpMod; this.grounded = false; this.onPlatform = false; createDust(this.x + this.w/2, this.y + this.h); }
+        if ((keys.KeyZ || keys.ArrowUp) && this.grounded && !this.crouching && !droppingDown) { 
+            this.vy = this.jumpPower * jumpMod; this.grounded = false; this.onPlatform = false; 
+            createDust(this.x + this.w/2, this.y + this.h); 
+            AudioSys.play('jump');
+        }
         
         // BALANCEAMENTO: Reduzi a força de subida do Voo do Dragão (era 1.0, agora 0.4) para não subir tão alto/rápido
         if (this.ultActive && ultName === 'Voo do Dragão' && (keys.KeyZ || keys.ArrowUp)) { this.vy -= 0.4; }
@@ -589,6 +709,7 @@ class Player {
             if (triple) { projectiles.push(new Projectile(spawnX, spawnY, this.aimAngle, true)); projectiles.push(new Projectile(spawnX, spawnY, this.aimAngle + 0.2, true)); projectiles.push(new Projectile(spawnX, spawnY, this.aimAngle - 0.2, true)); } 
             else { projectiles.push(new Projectile(spawnX, spawnY, this.aimAngle, true)); }
             this.shootTimer = effectiveDelay; if (!this.crouching) this.vx -= Math.cos(this.aimAngle) * 2; this.shotsInBurst++;
+            AudioSys.play('shoot');
         }
         if (this.shootTimer > 0) this.shootTimer--;
         this.x += this.vx; this.y += this.vy; this.vy += GRAVITY * gravMod; this.grounded = false; 
@@ -618,12 +739,25 @@ class Player {
     }
     takeDamage() {
         if (this.shieldActive || (this.ultActive && CHARACTERS[selectedCharIndex].ultName === 'Casco de Ferro')) return; 
-        if (this.invulnerable <= 0) { this.hp--; this.invulnerable = 60; shake = 10; if (this.hp <= 0) gameState = 'GAMEOVER'; }
+        if (this.invulnerable <= 0) { 
+            this.hp--; this.invulnerable = 60; shake = 10; 
+            AudioSys.play('hit');
+            if (this.hp <= 0) gameState = 'GAMEOVER'; 
+        }
     }
 }
 
 class BossBase {
-    constructor(x, y, w, h, hpPerStage) { this.x = x; this.y = y; this.w = w; this.h = h; this.hpPerStage = hpPerStage; this.hp = hpPerStage; this.maxHp = hpPerStage; this.bobOffset = 0; this.state = 'idle'; this.attackTimer = 0; this.vx = 1.0; this.movingLeft = true; this.stage = 1; this.transitionTimer = 0; this.armAngle = 0; }
+    constructor(x, y, w, h, hpPerStage) { 
+        this.x = x; this.y = y; this.w = w; this.h = h; 
+        this.hpPerStage = hpPerStage; this.hp = hpPerStage; this.maxHp = hpPerStage; 
+        this.bobOffset = 0; this.state = 'idle'; this.attackTimer = 0; 
+        this.vx = 1.0; this.movingLeft = true; this.stage = 1; 
+        this.transitionTimer = 0; this.armAngle = 0; 
+        
+        // NEW: Damage tracking for Palado intervention
+        this.damageTakenSincePalado = 0;
+    }
     
     // NOVO: Método auxiliar para calcular o ângulo em direção ao jogador
     getAngleToPlayer() {
@@ -645,18 +779,23 @@ class BossBase {
         this.attackTimer += 1.2 * bossTimeScale; 
         
         if (this.state !== 'jump' && this.state !== 'dash' && this.state !== 'rage') { let speed = this.vx * bossTimeScale; if (this.stage === 2) speed *= 1.2; if (this.movingLeft) { this.x -= speed; if (this.x < 350) { this.movingLeft = false; } } else { this.x += speed; if (this.x > GAME_WIDTH - this.w - 20) { this.movingLeft = true; } } }
-        if (this.hp <= 0 && this.stage < 2) { this.state = 'transition'; this.transitionTimer = 0; for(let i=0; i<20; i++) createParticle(this.x + this.w/2, this.y + this.h/2, 'spark'); projectiles = projectiles.filter(p => !p.isPlayer); }
+        if (this.hp <= 0 && this.stage < 2) { 
+            this.state = 'transition'; this.transitionTimer = 0; 
+            AudioSys.play('explosion');
+            for(let i=0; i<20; i++) createParticle(this.x + this.w/2, this.y + this.h/2, 'spark'); 
+            projectiles = projectiles.filter(p => !p.isPlayer); 
+        }
     }
 }
 
-// MASSIVE HP BUFFS FOR BOSSES (STARTS AT 1000) & AIMED SHOTS
-class PotatoBoss extends BossBase { constructor() { super(GAME_WIDTH - 250, GROUND_Y - 240, 200, 240, 1000); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); const centerX = this.x + this.w/2; const centerY = this.y + this.h/2 + 50; if (this.stage === 1) { if (this.attackTimer > 100 && Math.floor(this.attackTimer) % 50 === 0) { projectiles.push(new Projectile(centerX - 50, centerY, angle, false, 'normal')); if (this.attackTimer > 200) this.attackTimer = 0; } } else { if (this.state === 'idle' && this.attackTimer > 60) { this.state = 'jump'; this.attackTimer = 0; } if (this.state === 'jump') { this.x -= 4; if (frames % 30 === 0) { projectiles.push(new Projectile(this.x, this.y+100, this.getAngleToPlayer(), false, 'normal')); } if (this.x < 300) { this.x = GAME_WIDTH - 200; this.state = 'idle'; } } } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = this.stage === 2 ? '#6d4c41' : '#795548'; ctx.fillRect(-80, -100, 160, 200); ctx.fillStyle = '#5D4037'; for(let i=0; i<10; i++) ctx.fillRect(-70+Math.random()*140, -90+Math.random()*180, 10, 10); ctx.save(); ctx.translate(-60, -40); ctx.rotate(this.armAngle); ctx.fillStyle = '#795548'; ctx.fillRect(-20, 0, 20, 100); ctx.strokeRect(-20, 0, 20, 100); ctx.restore(); ctx.save(); ctx.translate(60, -40); ctx.rotate(-this.armAngle); ctx.fillStyle = '#795548'; ctx.fillRect(0, 0, 20, 100); ctx.strokeRect(0, 0, 20, 100); ctx.restore(); ctx.fillStyle = '#228B22'; ctx.fillRect(-60, -90, 120, 20); ctx.fillStyle = '#000'; ctx.fillRect(-30, -30, 15, 15); ctx.fillRect(15, -30, 15, 15); ctx.fillStyle = '#3E2723'; ctx.fillRect(-40, 20, 80, 10); ctx.restore(); } }
-class OnionBoss extends BossBase { constructor() { super(GAME_WIDTH/2 - 75, GROUND_Y - 180, 150, 180, 1100); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 50 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, angle, false, 'tear')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 35 === 0) { const p = new Projectile(this.x + this.w/2, this.y + this.h/2, angle + (Math.random() - 0.5) * 0.5, false, 'tear'); projectiles.push(p); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = this.stage === 2 ? '#A0A0A0' : '#C0C0C0'; ctx.fillRect(-70, -90, 140, 180); ctx.strokeStyle = '#808080'; ctx.lineWidth = 4; ctx.strokeRect(-70, -90, 140, 180); ctx.fillStyle = '#228B22'; ctx.fillRect(-60, -40, 10, 40); ctx.fillRect(20, 20, 10, 50); ctx.fillRect(-30, 50, 40, 10); ctx.save(); ctx.translate(-60, -40); ctx.rotate(this.armAngle * 0.5); ctx.fillStyle = '#EEE'; ctx.fillRect(-15, 0, 15, 120); ctx.strokeRect(-15, 0, 15, 120); ctx.restore(); ctx.save(); ctx.translate(60, -40); ctx.rotate(-this.armAngle * 0.5); ctx.fillStyle = '#EEE'; ctx.fillRect(0, 0, 15, 120); ctx.strokeRect(0, 0, 15, 120); ctx.restore(); ctx.fillStyle = this.stage === 2 ? '#f00' : '#800000'; ctx.fillRect(-30, -50, 15, 10); ctx.fillRect(15, -50, 15, 10); ctx.fillStyle = '#909090'; ctx.fillRect(-15, -40, 30, 40); ctx.strokeStyle='#707070'; ctx.strokeRect(-15, -40, 30, 40); ctx.restore(); } }
-class CarrotBoss extends BossBase { constructor() { super(GAME_WIDTH/2 - 80, GROUND_Y - 260, 160, 260, 1200); } update() { super.updateBase(); if(this.state === 'transition') return; this.state = this.stage >= 2 ? 'psy' : 'idle'; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 80 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 50, angle, false, 'carrot_missile')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 100 === 0) { for(let i=0; i<8; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y - 40, (Math.PI*2/8)*i, false, 'ball_gravity')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#777'; ctx.fillRect(-60, -100, 120, 200); ctx.fillStyle = this.stage === 2 ? '#00FF00' : '#0f0'; for(let i=0; i<10; i++) ctx.fillRect(-50+Math.random()*100, -90+Math.random()*180, 15, 15); if (this.state === 'psy') { ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; ctx.fillRect(-30, -140, 60, 40); ctx.fillStyle = '#fff'; ctx.fillRect(-20, -130, 40, 20); } ctx.fillStyle = '#000'; ctx.fillRect(-30, -30, 20, 20); ctx.fillRect(10, -30, 20, 20); ctx.fillRect(-10, 0, 20, 30); ctx.fillRect(-20, 30, 10, 20); ctx.fillRect(10, 30, 10, 20); ctx.restore(); } }
-class CircusBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 240, 150, 240, 1300); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 50, angle + (Math.random()-0.5)*0.5, false, 'ball_gravity')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 120 === 0) for(let i=0; i<5; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, angle + (i*0.2 - 0.4), false, 'confetti')); } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#A0522D'; ctx.fillRect(-60, -80, 120, 160); ctx.fillStyle = '#8B4513'; ctx.fillRect(-60, -80, 10, 160); ctx.fillRect(50, -80, 10, 160); ctx.fillStyle = '#D2B48C'; ctx.fillRect(-40, -140, 80, 60); ctx.fillStyle = '#000'; ctx.fillRect(-30, -120, 10, 5); ctx.fillRect(20, -120, 10, 5); ctx.fillStyle = '#8B4513'; ctx.fillRect(-15, -115, 30, 40); ctx.fillStyle = this.stage === 2 ? '#FFA500' : '#87CEEB'; ctx.fillRect(-30, -40, 20, 20); ctx.fillRect(10, -40, 20, 20); ctx.fillRect(-30, 20, 20, 20); ctx.fillRect(10, 20, 20, 20); ctx.restore(); } }
+// MASSIVE HP BUFFS FOR BOSSES (SCALED 300 -> 1000) & AIMED SHOTS
+class PotatoBoss extends BossBase { constructor() { super(GAME_WIDTH - 250, GROUND_Y - 240, 200, 240, 300); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); const centerX = this.x + this.w/2; const centerY = this.y + this.h/2 + 50; if (this.stage === 1) { if (this.attackTimer > 100 && Math.floor(this.attackTimer) % 50 === 0) { projectiles.push(new Projectile(centerX - 50, centerY, angle, false, 'normal')); if (this.attackTimer > 200) this.attackTimer = 0; } } else { if (this.state === 'idle' && this.attackTimer > 60) { this.state = 'jump'; this.attackTimer = 0; } if (this.state === 'jump') { this.x -= 4; if (frames % 30 === 0) { projectiles.push(new Projectile(this.x, this.y+100, this.getAngleToPlayer(), false, 'normal')); } if (this.x < 300) { this.x = GAME_WIDTH - 200; this.state = 'idle'; } } } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = this.stage === 2 ? '#6d4c41' : '#795548'; ctx.fillRect(-80, -100, 160, 200); ctx.fillStyle = '#5D4037'; for(let i=0; i<10; i++) ctx.fillRect(-70+Math.random()*140, -90+Math.random()*180, 10, 10); ctx.save(); ctx.translate(-60, -40); ctx.rotate(this.armAngle); ctx.fillStyle = '#795548'; ctx.fillRect(-20, 0, 20, 100); ctx.strokeRect(-20, 0, 20, 100); ctx.restore(); ctx.save(); ctx.translate(60, -40); ctx.rotate(-this.armAngle); ctx.fillStyle = '#795548'; ctx.fillRect(0, 0, 20, 100); ctx.strokeRect(0, 0, 20, 100); ctx.restore(); ctx.fillStyle = '#228B22'; ctx.fillRect(-60, -90, 120, 20); ctx.fillStyle = '#000'; ctx.fillRect(-30, -30, 15, 15); ctx.fillRect(15, -30, 15, 15); ctx.fillStyle = '#3E2723'; ctx.fillRect(-40, 20, 80, 10); ctx.restore(); } }
+class OnionBoss extends BossBase { constructor() { super(GAME_WIDTH/2 - 75, GROUND_Y - 180, 150, 180, 350); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 50 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, angle, false, 'tear')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 35 === 0) { const p = new Projectile(this.x + this.w/2, this.y + this.h/2, angle + (Math.random() - 0.5) * 0.5, false, 'tear'); projectiles.push(p); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = this.stage === 2 ? '#A0A0A0' : '#C0C0C0'; ctx.fillRect(-70, -90, 140, 180); ctx.strokeStyle = '#808080'; ctx.lineWidth = 4; ctx.strokeRect(-70, -90, 140, 180); ctx.fillStyle = '#228B22'; ctx.fillRect(-60, -40, 10, 40); ctx.fillRect(20, 20, 10, 50); ctx.fillRect(-30, 50, 40, 10); ctx.save(); ctx.translate(-60, -40); ctx.rotate(this.armAngle * 0.5); ctx.fillStyle = '#EEE'; ctx.fillRect(-15, 0, 15, 120); ctx.strokeRect(-15, 0, 15, 120); ctx.restore(); ctx.save(); ctx.translate(60, -40); ctx.rotate(-this.armAngle * 0.5); ctx.fillStyle = '#EEE'; ctx.fillRect(0, 0, 15, 120); ctx.strokeRect(0, 0, 15, 120); ctx.restore(); ctx.fillStyle = this.stage === 2 ? '#f00' : '#800000'; ctx.fillRect(-30, -50, 15, 10); ctx.fillRect(15, -50, 15, 10); ctx.fillStyle = '#909090'; ctx.fillRect(-15, -40, 30, 40); ctx.strokeStyle='#707070'; ctx.strokeRect(-15, -40, 30, 40); ctx.restore(); } }
+class CarrotBoss extends BossBase { constructor() { super(GAME_WIDTH/2 - 80, GROUND_Y - 260, 160, 260, 400); } update() { super.updateBase(); if(this.state === 'transition') return; this.state = this.stage >= 2 ? 'psy' : 'idle'; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 80 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 50, angle, false, 'carrot_missile')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 100 === 0) { for(let i=0; i<8; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y - 40, (Math.PI*2/8)*i, false, 'ball_gravity')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#777'; ctx.fillRect(-60, -100, 120, 200); ctx.fillStyle = this.stage === 2 ? '#00FF00' : '#0f0'; for(let i=0; i<10; i++) ctx.fillRect(-50+Math.random()*100, -90+Math.random()*180, 15, 15); if (this.state === 'psy') { ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; ctx.fillRect(-30, -140, 60, 40); ctx.fillStyle = '#fff'; ctx.fillRect(-20, -130, 40, 20); } ctx.fillStyle = '#000'; ctx.fillRect(-30, -30, 20, 20); ctx.fillRect(10, -30, 20, 20); ctx.fillRect(-10, 0, 20, 30); ctx.fillRect(-20, 30, 10, 20); ctx.fillRect(10, 30, 10, 20); ctx.restore(); } }
+class CircusBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 240, 150, 240, 450); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x + this.w/2, this.y + 50, angle + (Math.random()-0.5)*0.5, false, 'ball_gravity')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 120 === 0) for(let i=0; i<5; i++) projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, angle + (i*0.2 - 0.4), false, 'confetti')); } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#A0522D'; ctx.fillRect(-60, -80, 120, 160); ctx.fillStyle = '#8B4513'; ctx.fillRect(-60, -80, 10, 160); ctx.fillRect(50, -80, 10, 160); ctx.fillStyle = '#D2B48C'; ctx.fillRect(-40, -140, 80, 60); ctx.fillStyle = '#000'; ctx.fillRect(-30, -120, 10, 5); ctx.fillRect(20, -120, 10, 5); ctx.fillStyle = '#8B4513'; ctx.fillRect(-15, -115, 30, 40); ctx.fillStyle = this.stage === 2 ? '#FFA500' : '#87CEEB'; ctx.fillRect(-30, -40, 20, 20); ctx.fillRect(10, -40, 20, 20); ctx.fillRect(-30, 20, 20, 20); ctx.fillRect(10, 20, 20, 20); ctx.restore(); } }
 
 class RobotBoss extends BossBase { 
-    constructor() { super(GAME_WIDTH - 220, GROUND_Y - 260, 180, 260, 1400); } 
+    constructor() { super(GAME_WIDTH - 220, GROUND_Y - 260, 180, 260, 500); } 
     update() { 
         super.updateBase(); if(this.state === 'transition') return; 
         const angle = this.getAngleToPlayer(); 
@@ -673,12 +812,12 @@ class RobotBoss extends BossBase {
     draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#757575'; ctx.fillRect(-70, -90, 140, 180); ctx.fillStyle = '#FF0000'; ctx.fillRect(-50, -50, 100, 10); ctx.fillRect(0, -50, 10, 100); ctx.fillStyle = this.stage === 2 ? '#FF0000' : '#FF3333'; ctx.fillRect(-30, -30, 60, 60); ctx.strokeStyle='#900'; ctx.strokeRect(-30,-30,60,60); ctx.save(); ctx.translate(-60, -60); ctx.rotate(this.armAngle*0.3); ctx.fillStyle = '#8B4513'; ctx.fillRect(-30, 0, 30, 120); ctx.fillStyle = '#777'; ctx.fillRect(-35, 100, 40, 30); ctx.restore(); ctx.save(); ctx.translate(60, -60); ctx.rotate(-this.armAngle*0.3); ctx.fillStyle = '#8B4513'; ctx.fillRect(0, 0, 30, 120); ctx.fillStyle = '#777'; ctx.fillRect(-5, 100, 40, 30); ctx.restore(); ctx.fillStyle = '#FFFF00'; ctx.fillRect(-40, -70, 20, 10); ctx.fillRect(20, -70, 20, 10); ctx.restore(); } 
 }
 
-class ChefBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 160, 220, 1500); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 80 === 0) projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'knife')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 70 === 0) { projectiles.push(new Projectile(this.x, this.y + 80, angle - 0.1, false, 'knife')); projectiles.push(new Projectile(this.x, this.y + 120, angle + 0.1, false, 'knife')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#F0F0F0'; ctx.fillRect(-60, -80, 120, 100); ctx.fillStyle = '#000'; ctx.fillRect(-40, -50, 10, 5); ctx.fillRect(30, -50, 10, 5); if (this.attackTimer > 0 || this.stage === 2) { ctx.fillStyle = 'red'; ctx.fillRect(-40, -50, 10, 10); ctx.fillRect(30, -50, 10, 10); } ctx.fillStyle = 'black'; ctx.fillRect(-10, -30, 20, 10); ctx.fillStyle = '#DDD'; for(let i=0; i<5; i++) ctx.fillRect(-50 + i*25, 20, 15, 60 + Math.sin(frames*0.2+i)*10); ctx.fillStyle = this.stage === 2 ? '#FF4500' : '#FFA500'; const orbit = frames * 0.1; ctx.fillRect(Math.cos(orbit)*80 - 5, Math.sin(orbit)*20 + 20, 10, 40); ctx.fillRect(Math.cos(orbit + Math.PI)*80 - 5, Math.sin(orbit + Math.PI)*20 + 20, 10, 40); ctx.restore(); } }
-class MythicBoss extends BossBase { constructor() { super(GAME_WIDTH - 250, GROUND_Y - 250, 200, 250, 1600); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'normal')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 80 === 0) { projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'normal')); projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'normal')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#003344'; ctx.fillRect(-70, -100, 140, 200); const armH = 150 + Math.sin(frames*0.1)*10; ctx.fillStyle = '#003344'; ctx.fillRect(-100, -80, 30, armH); ctx.fillRect(70, -80, 30, armH); ctx.fillStyle = '#00aaaa'; ctx.fillRect(-30, -50, 20, 20); ctx.fillRect(10, -30, 20, 20); ctx.fillStyle = this.stage === 2 ? '#008888' : '#006666'; ctx.fillRect(-30, -50, 60, 60); ctx.fillStyle = '#CCCCCC'; ctx.fillRect(-40, -50, 10, 60); ctx.fillRect(30, -50, 10, 60); ctx.fillStyle = '#000'; ctx.fillRect(-60, -120, 120, 50); ctx.fillStyle = '#00aaaa'; ctx.fillRect(-80, -140, 30, 50); ctx.fillRect(50, -140, 30, 50); ctx.restore(); } }
-class GuardianBoss extends BossBase { constructor() { super(GAME_WIDTH - 220, GROUND_Y - 240, 160, 160, 1700); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 90 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'laser_teal')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 70 === 0) { projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'laser_teal')); projectiles.push(new Projectile(this.x, this.y + 50, angle + 0.5, false, 'normal')); projectiles.push(new Projectile(this.x, this.y + 50, angle - 0.5, false, 'normal')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#4fa'; ctx.fillRect(-60, -60, 120, 120); ctx.fillStyle = '#e90'; if(this.attackTimer > 60 || this.stage === 2) { for(let i=0; i<8; i++) { const a = (Math.PI*2/8)*i; ctx.fillRect(Math.cos(a)*70, Math.sin(a)*70, 10, 10); } } ctx.fillStyle = '#FFF'; ctx.fillRect(-20, -20, 40, 40); const eyeX = (player.x - (this.x+this.w/2)) * 0.05; const eyeY = (player.y - (this.y+this.h/2)) * 0.05; ctx.fillStyle = '#f60'; ctx.fillRect(-10+eyeX, -10+eyeY, 20, 20); ctx.fillStyle = '#000'; ctx.fillRect(-5+eyeX, -5+eyeY, 10, 10); ctx.restore(); } }
+class ChefBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 160, 220, 550); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 80 === 0) projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'knife')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 70 === 0) { projectiles.push(new Projectile(this.x, this.y + 80, angle - 0.1, false, 'knife')); projectiles.push(new Projectile(this.x, this.y + 120, angle + 0.1, false, 'knife')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#F0F0F0'; ctx.fillRect(-60, -80, 120, 100); ctx.fillStyle = '#000'; ctx.fillRect(-40, -50, 10, 5); ctx.fillRect(30, -50, 10, 5); if (this.attackTimer > 0 || this.stage === 2) { ctx.fillStyle = 'red'; ctx.fillRect(-40, -50, 10, 10); ctx.fillRect(30, -50, 10, 10); } ctx.fillStyle = 'black'; ctx.fillRect(-10, -30, 20, 10); ctx.fillStyle = '#DDD'; for(let i=0; i<5; i++) ctx.fillRect(-50 + i*25, 20, 15, 60 + Math.sin(frames*0.2+i)*10); ctx.fillStyle = this.stage === 2 ? '#FF4500' : '#FFA500'; const orbit = frames * 0.1; ctx.fillRect(Math.cos(orbit)*80 - 5, Math.sin(orbit)*20 + 20, 10, 40); ctx.fillRect(Math.cos(orbit + Math.PI)*80 - 5, Math.sin(orbit + Math.PI)*20 + 20, 10, 40); ctx.restore(); } }
+class MythicBoss extends BossBase { constructor() { super(GAME_WIDTH - 250, GROUND_Y - 250, 200, 250, 600); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 100 === 0) projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'normal')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 80 === 0) { projectiles.push(new Projectile(this.x, this.y + 180, angle, false, 'normal')); projectiles.push(new Projectile(this.x, this.y + 100, angle, false, 'normal')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#003344'; ctx.fillRect(-70, -100, 140, 200); const armH = 150 + Math.sin(frames*0.1)*10; ctx.fillStyle = '#003344'; ctx.fillRect(-100, -80, 30, armH); ctx.fillRect(70, -80, 30, armH); ctx.fillStyle = '#00aaaa'; ctx.fillRect(-30, -50, 20, 20); ctx.fillRect(10, -30, 20, 20); ctx.fillStyle = this.stage === 2 ? '#008888' : '#006666'; ctx.fillRect(-30, -50, 60, 60); ctx.fillStyle = '#CCCCCC'; ctx.fillRect(-40, -50, 10, 60); ctx.fillRect(30, -50, 10, 60); ctx.fillStyle = '#000'; ctx.fillRect(-60, -120, 120, 50); ctx.fillStyle = '#00aaaa'; ctx.fillRect(-80, -140, 30, 50); ctx.fillRect(50, -140, 30, 50); ctx.restore(); } }
+class GuardianBoss extends BossBase { constructor() { super(GAME_WIDTH - 220, GROUND_Y - 240, 160, 160, 650); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 90 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'laser_teal')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 70 === 0) { projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'laser_teal')); projectiles.push(new Projectile(this.x, this.y + 50, angle + 0.5, false, 'normal')); projectiles.push(new Projectile(this.x, this.y + 50, angle - 0.5, false, 'normal')); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#4fa'; ctx.fillRect(-60, -60, 120, 120); ctx.fillStyle = '#e90'; if(this.attackTimer > 60 || this.stage === 2) { for(let i=0; i<8; i++) { const a = (Math.PI*2/8)*i; ctx.fillRect(Math.cos(a)*70, Math.sin(a)*70, 10, 10); } } ctx.fillStyle = '#FFF'; ctx.fillRect(-20, -20, 40, 40); const eyeX = (player.x - (this.x+this.w/2)) * 0.05; const eyeY = (player.y - (this.y+this.h/2)) * 0.05; ctx.fillStyle = '#f60'; ctx.fillRect(-10+eyeX, -10+eyeY, 20, 20); ctx.fillStyle = '#000'; ctx.fillRect(-5+eyeX, -5+eyeY, 10, 10); ctx.restore(); } }
 
 class BeeBoss extends BossBase { 
-    constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 120, 100, 1800); } 
+    constructor() { super(GAME_WIDTH - 200, GROUND_Y - 220, 120, 100, 700); } 
     update() { 
         super.updateBase(); if(this.state === 'transition') return; 
         this.y += Math.sin(frames * 0.1) * 2; const angle = this.getAngleToPlayer(); 
@@ -696,11 +835,11 @@ class BeeBoss extends BossBase {
     draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#FFD700'; ctx.fillRect(-50, -40, 100, 80); ctx.fillStyle = '#000'; ctx.fillRect(-20, -40, 20, 80); ctx.fillRect(20, -40, 20, 80); ctx.fillStyle = 'rgba(255,255,255,0.7)'; const wingY = Math.sin(frames*1.5)*20; ctx.fillRect(-20, -80+wingY, 40, 40); ctx.fillRect(-20, -80-wingY, 40, 40); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(-50, 0); ctx.lineTo(-70, 10); ctx.lineTo(-50, 20); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillRect(30, -20, 10, 10); ctx.restore(); } 
 }
 
-class ConductorBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 240, 160, 240, 1900); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 90 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'note')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 60 === 0) { const p = new Projectile(this.x, this.y + 50, angle, false, 'note'); p.type = 'fast_beam'; projectiles.push(p); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#111'; ctx.fillRect(-40, -80, 80, 160); ctx.fillRect(-30, -90, 10, 150); ctx.fillRect(20, -90, 10, 150); ctx.fillRect(-30, -140, 60, 40); ctx.fillStyle = '#333'; for(let i=0; i<4; i++) ctx.fillRect(-20, -60 + i*30, 40, 5); ctx.fillStyle = '#D02090'; ctx.fillRect(-20, -60, 15, 8); ctx.fillRect(5, -60, 15, 8); ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.beginPath(); ctx.moveTo(-40, -60); ctx.lineTo(-140, -100); ctx.lineTo(-40, 20); ctx.fill(); ctx.beginPath(); ctx.moveTo(40, -60); ctx.lineTo(140, -100); ctx.lineTo(40, 20); ctx.fill(); if (frames % 10 === 0 || this.stage === 2) { ctx.fillStyle = '#D02090'; ctx.fillRect(-60 + Math.random()*120, -80 + Math.random()*160, 5, 5); } ctx.restore(); } }
+class ConductorBoss extends BossBase { constructor() { super(GAME_WIDTH - 200, GROUND_Y - 240, 160, 240, 750); } update() { super.updateBase(); if(this.state === 'transition') return; const angle = this.getAngleToPlayer(); if (this.stage === 1 && Math.floor(this.attackTimer) % 90 === 0) projectiles.push(new Projectile(this.x, this.y + 50, angle, false, 'note')); else if (this.stage === 2 && Math.floor(this.attackTimer) % 60 === 0) { const p = new Projectile(this.x, this.y + 50, angle, false, 'note'); p.type = 'fast_beam'; projectiles.push(p); } } draw(ctx) { ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2 + this.bobOffset); ctx.fillStyle = '#111'; ctx.fillRect(-40, -80, 80, 160); ctx.fillRect(-30, -90, 10, 150); ctx.fillRect(20, -90, 10, 150); ctx.fillRect(-30, -140, 60, 40); ctx.fillStyle = '#333'; for(let i=0; i<4; i++) ctx.fillRect(-20, -60 + i*30, 40, 5); ctx.fillStyle = '#D02090'; ctx.fillRect(-20, -60, 15, 8); ctx.fillRect(5, -60, 15, 8); ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.beginPath(); ctx.moveTo(-40, -60); ctx.lineTo(-140, -100); ctx.lineTo(-40, 20); ctx.fill(); ctx.beginPath(); ctx.moveTo(40, -60); ctx.lineTo(140, -100); ctx.lineTo(40, 20); ctx.fill(); if (frames % 10 === 0 || this.stage === 2) { ctx.fillStyle = '#D02090'; ctx.fillRect(-60 + Math.random()*120, -80 + Math.random()*160, 5, 5); } ctx.restore(); } }
 
 class SlimeBoss extends BossBase { 
     constructor() { 
-        super(GAME_WIDTH - 200, GROUND_Y - 180, 160, 120, 2000); 
+        super(GAME_WIDTH - 200, GROUND_Y - 180, 160, 120, 800); 
         this.vy = 0; 
     }
     update() {
@@ -728,7 +867,7 @@ class SlimeBoss extends BossBase {
 }
 
 class LavaBoss extends BossBase { 
-    constructor() { super(GAME_WIDTH - 250, GROUND_Y - 260, 180, 260, 2200); }
+    constructor() { super(GAME_WIDTH - 250, GROUND_Y - 260, 180, 260, 850); }
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         const angle = this.getAngleToPlayer();
@@ -752,7 +891,7 @@ class LavaBoss extends BossBase {
 }
 
 class VoidBoss extends BossBase { 
-    constructor() { super(GAME_WIDTH - 200, GROUND_Y - 200, 140, 200, 2400); }
+    constructor() { super(GAME_WIDTH - 200, GROUND_Y - 200, 140, 200, 900); }
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         if (Math.floor(this.attackTimer) % 150 === 0) { this.x = 200 + Math.random() * 400; this.y = 100 + Math.random() * 300; }
@@ -768,7 +907,7 @@ class VoidBoss extends BossBase {
 }
 
 class CpuBoss extends BossBase { 
-    constructor() { super(GAME_WIDTH/2 - 100, 100, 200, 200, 2600); } 
+    constructor() { super(GAME_WIDTH/2 - 100, 100, 200, 200, 950); } 
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         this.y = 100 + Math.sin(frames * 0.05) * 20; 
@@ -784,7 +923,7 @@ class CpuBoss extends BossBase {
 }
 
 class CosmicBoss extends BossBase { 
-    constructor() { super(GAME_WIDTH/2 - 120, GROUND_Y - 300, 240, 240, 3000); }
+    constructor() { super(GAME_WIDTH/2 - 120, GROUND_Y - 300, 240, 240, 1000); }
     update() {
         super.updateBase(); if(this.state === 'transition') return;
         if (Math.floor(this.attackTimer) % 40 === 0) {
@@ -818,6 +957,7 @@ function initNarrative(index) {
     currentNarrative = NARRATIVES[index] || { text: "...", choices: [] };
     narrativeState = 'CHOICE';
     gameState = 'NARRATIVE';
+    AudioSys.play('blip');
 }
 
 function loadLevel(index) {
@@ -871,7 +1011,18 @@ function checkCollisions() {
         const p = projectiles[i];
         if (p.isPlayer) {
             if (p.x > currentBoss.x && p.x < currentBoss.x + currentBoss.w && p.y > currentBoss.y && p.y < currentBoss.y + currentBoss.h) {
-                currentBoss.hp -= p.damage; player.addUltCharge(5); p.markedForDeletion = true; createParticle(p.x, p.y, 'spark');
+                currentBoss.hp -= p.damage; 
+                player.addUltCharge(5); 
+                p.markedForDeletion = true; 
+                createParticle(p.x, p.y, 'spark');
+                AudioSys.play('hit'); // Hit boss
+                
+                // --- PALADO INTERVENTION LOGIC ---
+                currentBoss.damageTakenSincePalado += p.damage;
+                if (currentBoss.damageTakenSincePalado >= 200 && currentBoss.hp > 0) {
+                    currentBoss.damageTakenSincePalado = 0; // Reset counter
+                    triggerPaladoEvent();
+                }
             }
         } else {
             if (p.x > player.x && p.x < player.x + player.w && p.y > player.y && p.y < player.y + player.h) {
@@ -932,13 +1083,16 @@ function drawNarrative(ctx) {
             ctx.strokeStyle = '#fff'; ctx.lineWidth = isHover ? 3 : 1; ctx.fillStyle = isHover ? '#333' : '#111';
             ctx.fillRect(btnX, btnY, btnW, btnH); ctx.strokeRect(btnX, btnY, btnW, btnH);
             ctx.fillStyle = '#fff'; ctx.fillText((i+1) + ". " + choice.text, btnX + 10, btnY + 25);
-            if (isHover && keys.MouseLeft) { narrativeState = 'RESPONSE'; narrativeResponseText = choice.response; keys.MouseLeft = false; }
+            if (isHover && keys.MouseLeft) { 
+                narrativeState = 'RESPONSE'; narrativeResponseText = choice.response; keys.MouseLeft = false; 
+                AudioSys.play('blip');
+            }
         });
     } else {
         ctx.fillStyle = '#aaa'; ctx.fillText(currentNarrative.text, 150, 200);
         ctx.fillStyle = '#0ff'; ctx.fillText(narrativeResponseText, 150, 300);
         ctx.fillStyle = (Math.floor(frames/30)%2===0) ? '#ff0' : '#fff'; ctx.fillText(">> CLIQUE PARA COMEÇAR <<", 250, 500);
-        if (keys.MouseLeft) { loadLevel(levelIndex); gameState = 'PLAYING'; keys.MouseLeft = false; }
+        if (keys.MouseLeft) { loadLevel(levelIndex); gameState = 'PLAYING'; keys.MouseLeft = false; AudioSys.play('powerup'); }
     }
 }
 
@@ -1007,7 +1161,7 @@ function drawCharSelect(ctx) {
         ctx.save(); ctx.translate(x + w/2, y + h/2); drawCharacterBody(ctx, char, 0, 0, 0, false, 1, 0); ctx.restore();
         ctx.fillStyle = 'white'; ctx.font = '24px "VT323"'; ctx.fillText(char.name, x + w/2, y + h - 10);
         ctx.font = '16px "VT323"'; ctx.fillStyle = '#aaa'; ctx.fillText("Ult: " + char.ultName, x + w/2, y + h + 15);
-        if (isHover && keys.MouseLeft) { selectedCharIndex = i; gameState = 'MAP'; keys.MouseLeft = false; loadProgress(); }
+        if (isHover && keys.MouseLeft) { selectedCharIndex = i; gameState = 'MAP'; keys.MouseLeft = false; AudioSys.play('blip'); loadProgress(); }
     });
 }
 
@@ -1048,10 +1202,44 @@ function drawUI() {
     else if (gameState === 'VICTORY') { ctx.fillStyle = '#000'; ctx.fillRect(0,0, GAME_WIDTH, GAME_HEIGHT); ctx.font = '60px "VT323"'; ctx.fillStyle = '#0f0'; ctx.textAlign = 'center'; ctx.fillText("JOGO ZERADO!", GAME_WIDTH/2, 250); ctx.font = '30px "VT323"'; ctx.fillStyle = 'white'; ctx.fillText("Obrigado por jogar a versão BRUTAL!", GAME_WIDTH/2, 350); ctx.fillText("Enter para Menu", GAME_WIDTH/2, 450); }
 }
 
-function startMenuGame() { gameState = 'CHAR_SELECT'; }
+function startMenuGame() { gameState = 'CHAR_SELECT'; AudioSys.play('blip'); }
 function retryLevel() { loadLevel(levelIndex); gameState = 'PLAYING'; }
 function resetToMenu() { gameState = 'MENU'; }
 function drawCrosshair() { ctx.save(); ctx.translate(mouse.x, mouse.y); ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.fillRect(-10, -2, 20, 4); ctx.fillRect(-2, -10, 4, 20); ctx.globalCompositeOperation = 'difference'; ctx.restore(); }
+
+function drawPaladoEventUI(ctx) {
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    drawPalado(ctx, GAME_WIDTH/2, 150);
+    ctx.font = '36px "VT323"';
+    ctx.fillStyle = '#FFF';
+    ctx.textAlign = 'center';
+    ctx.fillText("AJUDA DO PALADO!", GAME_WIDTH/2, 230);
+    ctx.font = '24px "VT323"';
+    ctx.fillStyle = '#AAA';
+    ctx.fillText("Escolha um bônus para continuar a luta:", GAME_WIDTH/2, 260);
+    const startY = 320;
+    const cardW = 300;
+    const cardH = 60;
+    const gap = 20;
+    paladoOptions.forEach((opt, i) => {
+        const y = startY + i * (cardH + gap);
+        const x = GAME_WIDTH/2 - cardW/2;
+        const isHover = mouse.x > x && mouse.x < x + cardW && mouse.y > y && mouse.y < y + cardH;
+        ctx.fillStyle = isHover ? '#444' : '#222';
+        ctx.strokeStyle = '#FFF';
+        ctx.lineWidth = 2;
+        ctx.fillRect(x, y, cardW, cardH);
+        ctx.strokeRect(x, y, cardW, cardH);
+        ctx.fillStyle = isHover ? '#FFD700' : '#FFF';
+        ctx.font = '24px "VT323"';
+        ctx.fillText(opt.text, GAME_WIDTH/2, y + 38);
+        if (isHover && keys.MouseLeft) {
+            applyPaladoBuff(opt);
+            keys.MouseLeft = false;
+        }
+    });
+}
 
 function loop() {
     canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT;
@@ -1071,17 +1259,34 @@ function loop() {
         knockoutTimer++;
         if (knockoutTimer > 120) { if (levelIndex >= 14) { gameState = 'VICTORY'; clearSave(); } else { generateSkills(); gameState = 'SKILL_SELECT'; } }
     }
-    if (gameState === 'PLAYING' || gameState === 'KNOCKOUT') { drawBackground(); if(currentBoss) currentBoss.draw(ctx); player.draw(ctx); projectiles.forEach(p => p.draw(ctx)); particles.forEach(p => p.draw(ctx)); if (!isMobile) drawCrosshair(); } 
+    
+    // Draw calls
+    if (gameState === 'PLAYING' || gameState === 'KNOCKOUT' || gameState === 'PALADO_OFFER') { 
+        drawBackground(); 
+        if(currentBoss) currentBoss.draw(ctx); 
+        player.draw(ctx); 
+        projectiles.forEach(p => p.draw(ctx)); 
+        particles.forEach(p => p.draw(ctx)); 
+        if (!isMobile) drawCrosshair(); 
+    } 
+    
+    if (gameState === 'PALADO_OFFER') {
+        drawPaladoEventUI(ctx);
+        if (!isMobile) drawCursor(ctx);
+    }
     else if (gameState === 'CHAR_SELECT') { drawCharSelect(ctx); if (!isMobile) drawCursor(ctx); } 
     else if (gameState === 'MAP') { drawMap(ctx); if (!isMobile) drawCursor(ctx); } 
     else if (gameState === 'SKILL_SELECT') { drawSkillSelection(ctx); if (!isMobile) drawCursor(ctx); } 
     else if (gameState === 'NARRATIVE') { drawNarrative(ctx); if (!isMobile) drawCursor(ctx); }
+    else if (gameState === 'MENU' || gameState === 'GAMEOVER' || gameState === 'VICTORY') { drawUI(); } // Draw main menu UIs
+
     if (shake > 0) ctx.restore();
-    if(gameState !== 'CREATOR') drawUI();
+    if(gameState !== 'CREATOR' && gameState !== 'MENU' && gameState !== 'GAMEOVER' && gameState !== 'VICTORY') drawUI(); // Draw gameplay UI on top
     requestAnimationFrame(loop);
 }
 
 window.addEventListener('keydown', e => {
+    AudioSys.init(); // Init audio context on interaction
     if (e.code === 'KeyA') keys.KeyA = true; if (e.code === 'KeyD') keys.KeyD = true; if (e.code === 'KeyW') keys.KeyW = true; if (e.code === 'KeyS') keys.KeyS = true;
     if (e.code === 'ArrowLeft') keys.ArrowLeft = true; if (e.code === 'ArrowRight') keys.ArrowRight = true; if (e.code === 'ArrowUp') keys.ArrowUp = true; if (e.code === 'ArrowDown') keys.ArrowDown = true;
     if (e.code === 'KeyZ' || e.code === 'Space') keys.KeyZ = true; if (e.code === 'KeyE') keys.KeyE = true; if (e.code === 'KeyC') keys.KeyC = true;
@@ -1094,10 +1299,10 @@ window.addEventListener('keyup', e => {
     if (e.code === 'ArrowLeft') keys.ArrowLeft = false; if (e.code === 'ArrowRight') keys.ArrowRight = false; if (e.code === 'ArrowUp') keys.ArrowUp = false; if (e.code === 'ArrowDown') keys.ArrowDown = false;
     if (e.code === 'KeyZ' || e.code === 'Space') keys.KeyZ = false; if (e.code === 'KeyE') keys.KeyE = false; if (e.code === 'KeyC') keys.KeyC = false;
 });
-window.addEventListener('mousedown', e => { if (e.button === 0) keys.MouseLeft = true; if (e.button === 2) keys.MouseRight = true; });
+window.addEventListener('mousedown', e => { AudioSys.init(); if (e.button === 0) keys.MouseLeft = true; if (e.button === 2) keys.MouseRight = true; });
 window.addEventListener('mouseup', e => { if (e.button === 0) keys.MouseLeft = false; if (e.button === 2) keys.MouseRight = false; });
 
-function setupTouch(id, key) { const el = document.getElementById(id); if(el) { el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; }); el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; }); } }
+function setupTouch(id, key) { const el = document.getElementById(id); if(el) { el.addEventListener('touchstart', (e) => { e.preventDefault(); AudioSys.init(); keys[key] = true; }); el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; }); } }
 setupTouch('btn-left', 'KeyA'); setupTouch('btn-right', 'KeyD'); setupTouch('btn-down', 'KeyS'); setupTouch('btn-jump', 'KeyZ'); setupTouch('btn-shoot', 'MouseLeft'); setupTouch('btn-shield', 'MouseRight'); setupTouch('btn-ult', 'KeyE');
 
 loop();
