@@ -207,9 +207,9 @@ const ctx = canvas.getContext('2d');
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
-const GRAVITY = 0.4; // Reduced gravity (was 0.5) for floatier feel
+const GRAVITY = 0.45; // BALANCEADO: Um pouco mais pesado que o lento (era 0.4), mas menos que o original (0.5)
 const GROUND_Y = 500;
-const SAVE_KEY = 'sn_the_game_save_v19_slow';
+const SAVE_KEY = 'sn_the_game_save_v20_balanced';
 
 let gameState = 'MENU'; 
 let frames = 0;
@@ -540,8 +540,8 @@ class Particle {
 class Projectile {
     constructor(x, y, angle, isPlayer, type = 'normal') {
         this.x = x; this.y = y; this.angle = angle; this.isPlayer = isPlayer; this.type = type;
-        // REDUCED SPEEDS
-        this.speed = isPlayer ? 9 : 2.5; 
+        // BALANCEADO: Velocidades ajustadas para um ritmo médio
+        this.speed = isPlayer ? 10.5 : 2.8; 
         this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed;
         
         // --- LOGICA DE DANO BALANCEADO HARDCORE ---
@@ -566,19 +566,19 @@ class Projectile {
         }
 
         if (type === 'tear' || type === 'ball_gravity' || type === 'fireball') { 
-            this.vx = (type === 'ball_gravity' || type === 'fireball') ? Math.cos(angle) * 3.5 : 0; 
-            this.vy = (type === 'ball_gravity' || type === 'fireball') ? Math.sin(angle) * 3.5 : 0; 
+            this.vx = (type === 'ball_gravity' || type === 'fireball') ? Math.cos(angle) * 4.2 : 0; 
+            this.vy = (type === 'ball_gravity' || type === 'fireball') ? Math.sin(angle) * 4.2 : 0; 
             if(type === 'fireball') { this.vy -= 2; this.gravity = 0.15; } // Arcing shot
             else if(type === 'tear') { this.gravity = 0.2; }
             else { this.vy = -6; this.gravity = 0.2; }
         } 
         else if (type === 'gear' || type === 'knife' || type === 'fast_beam' || type === 'stinger' || type === 'binary') { 
-            this.speed = (type === 'fast_beam' || type === 'stinger' || type === 'binary') ? 6 : 4; 
+            this.speed = (type === 'fast_beam' || type === 'stinger' || type === 'binary') ? 7 : 4.5; 
             this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed; 
         } 
         else if (type === 'note') { this.baseY = y; this.time = 0; }
         else if (type === 'laser_teal' || type === 'void_orb') { 
-            this.speed = 5; this.vx = Math.cos(angle)*this.speed; this.vy = Math.sin(angle)*this.speed; 
+            this.speed = 6; this.vx = Math.cos(angle)*this.speed; this.vy = Math.sin(angle)*this.speed; 
         }
     }
 
@@ -639,8 +639,8 @@ class Player {
     constructor() {
         this.w = 50; this.h = 70; this.x = 100; this.y = GROUND_Y - this.h;
         this.vx = 0; this.vy = 0; 
-        this.baseSpeed = 3; // REDUCED
-        this.jumpPower = -12; // REDUCED
+        this.baseSpeed = 3.5; // BALANCEADO: Mais rápido que 3, menos que 4
+        this.jumpPower = -13; // BALANCEADO: Pulo um pouco mais forte
         this.grounded = true; this.facing = 1; this.hp = playerStats.maxHp; this.invulnerable = 0;
         this.shootTimer = 0; this.animFrame = 0; this.aimAngle = 0; this.shotsInBurst = 0; this.crouching = false;
         this.onPlatform = false; this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 0; this.maxShieldTime = 180; this.maxShieldCool = 180;
@@ -698,9 +698,8 @@ class Player {
             AudioSys.play('jump');
         }
         
-        // BALANCEAMENTO: Reduzi a força de subida do Voo do Dragão (era 1.0, agora 0.4) para não subir tão alto/rápido
-        // FURTHER REDUCED to match lower gravity
-        if (this.ultActive && ultName === 'Voo do Dragão' && (keys.KeyZ || keys.ArrowUp)) { this.vy -= 0.35; }
+        // BALANCEAMENTO: Ajuste da subida do Voo do Dragão
+        if (this.ultActive && ultName === 'Voo do Dragão' && (keys.KeyZ || keys.ArrowUp)) { this.vy -= 0.38; }
         
         if (!keys.MouseLeft) { this.shotsInBurst = 0; }
         
@@ -757,7 +756,7 @@ class BossBase {
         this.x = x; this.y = y; this.w = w; this.h = h; 
         this.hpPerStage = hpPerStage; this.hp = hpPerStage; this.maxHp = hpPerStage; 
         this.bobOffset = 0; this.state = 'idle'; this.attackTimer = 0; 
-        this.vx = 0.6; // REDUCED BOSS SPEED (was 1.0)
+        this.vx = 0.8; // BALANCEADO: Boss se move melhor
         this.movingLeft = true; this.stage = 1; 
         this.transitionTimer = 0; this.armAngle = 0; 
         
@@ -781,8 +780,8 @@ class BossBase {
         this.bobOffset = Math.sin(frames * 0.05) * 10; this.armAngle = Math.sin(frames * 0.1) * 0.5;
         if (this.state === 'transition') { this.transitionTimer += 1; if (this.transitionTimer > 90) { this.stage++; this.hp = this.maxHp; this.state = 'idle'; this.attackTimer = 0; } return; }
         
-        // DIFICULDADE: Bosses atacam agora mais devagar (1.2 -> 0.8)
-        this.attackTimer += 0.8 * bossTimeScale; 
+        // DIFICULDADE: Frequência de ataque média (1.0)
+        this.attackTimer += 1.0 * bossTimeScale; 
         
         if (this.state !== 'jump' && this.state !== 'dash' && this.state !== 'rage') { let speed = this.vx * bossTimeScale; if (this.stage === 2) speed *= 1.2; if (this.movingLeft) { this.x -= speed; if (this.x < 350) { this.movingLeft = false; } } else { this.x += speed; if (this.x > GAME_WIDTH - this.w - 20) { this.movingLeft = true; } } }
         if (this.hp <= 0 && this.stage < 2) { 
