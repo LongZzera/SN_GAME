@@ -478,6 +478,7 @@ function loadProgress() {
 function clearSave() { localStorage.removeItem(SAVE_KEY); levelIndex = 0; playerStats = { maxHp: 3, damageMult: 1.0, speedMult: 1.0, shotDelay: 10, hasTripleShot: false, hasHoming: false }; }
 
 function updateMousePos(evt) {
+    if (!evt) return;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -486,6 +487,24 @@ function updateMousePos(evt) {
 }
 canvas.addEventListener('mousemove', updateMousePos);
 canvas.addEventListener('contextmenu', event => event.preventDefault());
+
+// Configuração Robusta de Toque no Canvas (Para Menus e Mira)
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Impede scroll/zoom
+    updateMousePos(e.touches[0]);
+    keys.MouseLeft = true; // Simula clique
+    AudioSys.init();
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    updateMousePos(e.touches[0]);
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    keys.MouseLeft = false; // Solta clique
+}, { passive: false });
 
 // --- RENDERING HELPERS ---
 function drawCharacterBody(ctx, char, x, y, animFrame, isCrouch, facing, bounce) {
@@ -1390,9 +1409,26 @@ window.addEventListener('mouseup', e => { if (e.button === 0) keys.MouseLeft = f
 function setupTouch(id, key) { 
     const el = document.getElementById(id); 
     if(el) { 
-        // Suporte a toque
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); AudioSys.init(); keys[key] = true; }); 
-        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+        // Suporte a toque - Adicionado 'passive: false' e 'touchcancel' para robustez
+        el.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            e.stopPropagation(); // Evita que o toque passe para o canvas
+            AudioSys.init(); 
+            keys[key] = true; 
+            el.style.transform = "scale(0.9)"; // Feedback visual
+        }, { passive: false }); 
+        
+        el.addEventListener('touchend', (e) => { 
+            e.preventDefault(); 
+            keys[key] = false; 
+            el.style.transform = "scale(1)";
+        }, { passive: false });
+
+        el.addEventListener('touchcancel', (e) => { 
+            e.preventDefault(); 
+            keys[key] = false; 
+            el.style.transform = "scale(1)";
+        }, { passive: false });
         
         // Suporte a mouse para testar modo mobile no PC
         el.addEventListener('mousedown', (e) => { e.preventDefault(); AudioSys.init(); keys[key] = true; });
